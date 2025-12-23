@@ -28,7 +28,7 @@ const navigationItems = [
     href: "/amavasyaUserLocation",
     icon: MapPin,
   },
-  // { title: "Roles", href: "/roles", icon: Shield },
+  { title: "Roles", href: "/roles", icon: Shield },
 ];
 
 interface SidebarProps {
@@ -39,12 +39,10 @@ export function Sidebar({ className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const location = useLocation();
 
-  /** 🔥 FIXED ACTIVE LOGIC */
+  /** ACTIVE ROUTE LOGIC */
   const isNavActive = (href: string) => {
-    // Exact match
     if (location.pathname === href) return true;
 
-    // Child routes match (but avoid prefix conflict)
     if (
       location.pathname.startsWith(href + "/") &&
       href !== "/amavasyaUserLocation"
@@ -58,9 +56,9 @@ export function Sidebar({ className }: SidebarProps) {
   return (
     <>
       {/* =========================
-          FIXED TOP HEADER
+          MOBILE / TABLET HEADER ONLY
       ========================== */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between border-b bg-background px-4">
+      <header className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between border-b bg-background px-4 lg:hidden">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow shadow-md">
             <span className="text-lg font-bold text-primary-foreground">S</span>
@@ -95,12 +93,27 @@ export function Sidebar({ className }: SidebarProps) {
         className={cn(
           "fixed left-0 top-16 z-40 flex h-[calc(100vh-4rem)] flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300",
           collapsed ? "-translate-x-full lg:translate-x-0 lg:w-20" : "w-72",
-          "lg:relative lg:translate-x-0",
+          "lg:relative lg:top-0 lg:h-screen lg:translate-x-0",
           className
         )}
       >
-        {/* DESKTOP COLLAPSE BUTTON */}
-        <div className="flex justify-end border-b px-2 py-2">
+        {/* =========================
+            DESKTOP BRAND + COLLAPSE
+            ========================== */}
+        <div className="flex items-center justify-between border-b px-3 py-2">
+          <div className="hidden lg:flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-glow">
+              <span className="text-sm font-bold text-primary-foreground">
+                S
+              </span>
+            </div>
+
+            {/* NAME ONLY WHEN EXPANDED */}
+            {!collapsed && (
+              <span className="font-semibold tracking-tight">SEVAK</span>
+            )}
+          </div>
+
           <Button
             variant="ghost"
             size="icon"
@@ -116,7 +129,9 @@ export function Sidebar({ className }: SidebarProps) {
           </Button>
         </div>
 
-        {/* NAVIGATION */}
+        {/* =========================
+            NAVIGATION
+        ========================== */}
         <nav className="flex-1 overflow-y-auto custom-scrollbar p-3">
           <ul className="space-y-1">
             {navigationItems.map((item) => {
@@ -148,8 +163,8 @@ export function Sidebar({ className }: SidebarProps) {
         </nav>
       </aside>
 
-      {/* CONTENT SPACER */}
-      <div className="h-16" />
+      {/* CONTENT TOP SPACER FOR MOBILE HEADER */}
+      <div className="h-16 lg:hidden" />
     </>
   );
 }

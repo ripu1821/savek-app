@@ -177,4 +177,23 @@ router.get(
   controller.getUserAmavasyaAttendance
 );
 
+/**
+ * @swagger
+ * /amavasyaUserLocation/dashboard/userAttendanceCount:
+ *   get:
+ *     summary: Get users sorted by total amavasya attendance
+ *     tags: [AmavasyaUserLocations]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User attendance ranking list
+ */
+router.get(
+  "/dashboard/userAttendanceCount",
+  authenticateUser,
+  controller.getUserAttendanceCountList
+);
+
+
 export default router;

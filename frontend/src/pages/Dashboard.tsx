@@ -1,7 +1,8 @@
 // src/pages/Dashboard.tsx
 import { useMemo } from "react";
-import { Activity, Users, MapPin, Shield, Moon, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Activity, Users, MapPin, Moon, Eye } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+
 import {
   GlassCard,
   GlassCardContent,
@@ -14,6 +15,8 @@ import { cn } from "@/lib/utils";
 import useFetchDashboardData from "@/hooks/useFetchDashboardData";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   const {
     amavasya,
     users,
@@ -21,6 +24,7 @@ export default function Dashboard() {
     locations,
     permissions,
     amavasyaUserLocations,
+    userAttendanceRank,
     loading,
     error,
   } = useFetchDashboardData();
@@ -45,14 +49,6 @@ export default function Dashboard() {
         gradient: "from-emerald-500 to-teal-500",
       },
       {
-        title: "Roles",
-        count: roles.length,
-        active: roles.filter((r) => r.isActive).length,
-        icon: Shield,
-        href: "/roles",
-        gradient: "from-orange-500 to-amber-500",
-      },
-      {
         title: "Locations",
         count: locations.length,
         active: locations.filter((l) => l.isActive).length,
@@ -67,14 +63,6 @@ export default function Dashboard() {
         icon: MapPin,
         href: "/amavasya-user-locations",
         gradient: "from-indigo-500 to-purple-500",
-      },
-      {
-        title: "Permissions",
-        count: permissions.length,
-        active: permissions.filter((p) => p.status === "Active").length,
-        icon: Lock,
-        href: "/permissions",
-        gradient: "from-cyan-500 to-blue-500",
       },
     ],
     [amavasya, users, roles, locations, permissions, amavasyaUserLocations]
@@ -95,10 +83,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+      {/* ================= STATS GRID ================= */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
         {loading
-          ? Array.from({ length: 6 }).map((_, i) => (
+          ? Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
                 className="h-28 rounded-xl bg-muted/20 animate-pulse"
@@ -114,9 +102,8 @@ export default function Dashboard() {
                 <GlassCard
                   variant="elevated"
                   className="transition-all duration-300 hover:scale-[1.02] hover:shadow-xl animate-slide-up"
-                  style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <GlassCardContent className="flex items-center gap-4">
+                  <GlassCardContent className="flex items-center gap-4 min-h-[96px]">
                     <div
                       className={cn(
                         "flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg transition-transform duration-300 group-hover:scale-110",
@@ -129,7 +116,7 @@ export default function Dashboard() {
                       <p className="text-sm text-muted-foreground">
                         {stat.title}
                       </p>
-                      <div className="flex items-baseline gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
                         <p className="text-3xl font-bold">{stat.count}</p>
                         <span className="text-xs text-muted-foreground">
                           ({stat.active} active)
@@ -142,13 +129,10 @@ export default function Dashboard() {
             ))}
       </div>
 
-      {/* Recent Activities */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <GlassCard
-          variant="elevated"
-          className="animate-slide-up"
-          style={{ animationDelay: "300ms" }}
-        >
+      {/* ================= CONTENT GRID ================= */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* ===== Upcoming Amavasya ===== */}
+        <GlassCard variant="elevated">
           <GlassCardHeader>
             <GlassCardTitle className="flex items-center gap-2">
               <Moon className="h-5 w-5 text-primary" />
@@ -167,24 +151,16 @@ export default function Dashboard() {
                 : recentActivities.map((activity) => (
                     <div
                       key={activity.id}
-                      className="flex items-center justify-between rounded-xl bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                      className="flex items-center justify-between rounded-xl bg-muted/30 p-3 hover:bg-muted/50"
                     >
                       <div>
                         <p className="font-medium">
                           {activity.month} {activity.year}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {activity.startDate
-                            ? new Date(activity.startDate).toLocaleDateString()
-                            : `${activity.startTime ?? ""} - ${
-                                activity.endTime ?? ""
-                              }`}
+                          {activity.startDate &&
+                            new Date(activity.startDate).toLocaleDateString()}
                         </p>
-                        {activity.startTime && activity.endTime && (
-                          <p className="text-xs text-muted-foreground">
-                            {activity.startTime} - {activity.endTime}
-                          </p>
-                        )}
                       </div>
                       <StatusBadge
                         variant={activity.isActive ? "active" : "inactive"}
@@ -197,12 +173,8 @@ export default function Dashboard() {
           </GlassCardContent>
         </GlassCard>
 
-        {/* Recent Users card — same as before but uses live `users` */}
-        <GlassCard
-          variant="elevated"
-          className="animate-slide-up"
-          style={{ animationDelay: "350ms" }}
-        >
+        {/* ===== Recent Users ===== */}
+        <GlassCard variant="elevated">
           <GlassCardHeader>
             <GlassCardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
@@ -221,10 +193,10 @@ export default function Dashboard() {
                 : users.slice(0, 5).map((user) => (
                     <div
                       key={user.id}
-                      className="flex items-center justify-between rounded-xl bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                      className="flex items-center justify-between rounded-xl bg-muted/30 p-3 hover:bg-muted/50"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-glow text-sm font-semibold text-primary-foreground">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
                           {user.userName?.charAt(0) ?? "U"}
                         </div>
                         <div>
@@ -234,12 +206,70 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-
                       <StatusBadge variant="primary" showDot={false}>
                         {user.roleId?.name ?? "—"}
                       </StatusBadge>
                     </div>
                   ))}
+            </div>
+          </GlassCardContent>
+        </GlassCard>
+
+        {/* ===== Top Amavasya Attendees ===== */}
+        <GlassCard variant="elevated">
+          <GlassCardHeader>
+            <GlassCardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              Top Amavasya Attendees
+            </GlassCardTitle>
+          </GlassCardHeader>
+
+          <GlassCardContent>
+            <div className="space-y-3">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-12 w-full rounded-md bg-muted/20 animate-pulse"
+                  />
+                ))
+              ) : userAttendanceRank?.length ? (
+                userAttendanceRank.slice(0, 5).map((item, index) => (
+                  <div
+                    key={item.userId}
+                    className="flex items-center justify-between rounded-xl bg-muted/30 p-3 hover:bg-muted/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium">{item.userName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Total Attendance:{" "}
+                          <span className="font-semibold text-foreground">
+                            {item.totalAttendance}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        navigate(`/amavasyaUserLocation/user/${item.userId}`)
+                      }
+                      className="p-2 rounded-lg hover:bg-primary/10"
+                      title="View Attendance"
+                    >
+                      <Eye className="h-5 w-5 text-primary" />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-sm text-muted-foreground">
+                  No attendance data found
+                </p>
+              )}
             </div>
           </GlassCardContent>
         </GlassCard>

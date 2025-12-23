@@ -5,21 +5,21 @@ import api from "@/lib/api";
 type AnyArray = any[];
 
 function extractItems(resp: any): AnyArray {
-  // resp is axios response
-  // expected server shape: { success, status, message, data: { items: [...], ... } }
-  // fallback shapes are handled defensively
-  const d = resp?.data?.data;
+  // expected server shape:
+  // { status, message, payload: { items: [...] } }
+  // OR older shape: { data: { items: [...] } }
 
-  if (!d) {
-    // maybe server returned array directly in resp.data (older shape)
-    if (Array.isArray(resp?.data)) return resp.data;
-    return [];
-  }
+  const payload = resp?.data?.payload;
+  const data = resp?.data?.data;
 
-  if (Array.isArray(d)) return d; // server returned data: [ ... ] directly
-  if (Array.isArray(d.items)) return d.items; // paginated shape
-  if (Array.isArray(d.data)) return d.data; // nested fallback
-  // possibly a single object — not an array
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(data?.items)) return data.items;
+
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(data)) return data;
+
+  if (Array.isArray(resp?.data)) return resp.data;
+
   return [];
 }
 
@@ -32,10 +32,13 @@ export default function useFetchDashboardData() {
   const [amavasyaUserLocations, setAmavasyaUserLocations] = useState<AnyArray>(
     []
   );
+
+  // 🔥 NEW – Top attendance ranking
+  const [userAttendanceRank, setUserAttendanceRank] = useState<AnyArray>([]);
+
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ref so refetch has stable identity and uses latest function
   const cancelledRef = useRef(false);
 
   const fetchAll = useCallback(async () => {
@@ -44,35 +47,30 @@ export default function useFetchDashboardData() {
     cancelledRef.current = false;
 
     try {
-      const [amResp, uResp, rResp, lResp, pResp, aulResp] = await Promise.all([
-        api.get("/amavasya"),
-        api.get("/user"),
-        api.get("/role"),
-        api.get("/location"),
-        api.get("/permission"),
-        api.get("/amavasyaUserLocation"),
-      ]);
+      const [amResp, uResp, rResp, lResp, pResp, aulResp, attendanceResp] =
+        await Promise.all([
+          api.get("/amavasya"),
+          api.get("/user"),
+          api.get("/role"),
+          api.get("/location"),
+          api.get("/permission"),
+          api.get("/amavasyaUserLocation"),
+          api.get("/amavasyaUserLocation/dashboard/userAttendanceCount"),
+        ]);
 
       if (cancelledRef.current) return;
 
-      const amItems = extractItems(amResp);
-      const uItems = extractItems(uResp);
-      const rItems = extractItems(rResp);
-      const lItems = extractItems(lResp);
-      const pItems = extractItems(pResp);
-      const aulItems = extractItems(aulResp);
-      
-      setAmavasya(amItems);
-      setUsers(uItems);
-      setRoles(rItems);
-      setLocations(lItems);
-      setPermissions(pItems);
-      setAmavasyaUserLocations(aulItems);
+      setAmavasya(extractItems(amResp));
+      setUsers(extractItems(uResp));
+      setRoles(extractItems(rResp));
+      setLocations(extractItems(lResp));
+      setPermissions(extractItems(pResp));
+      setAmavasyaUserLocations(extractItems(aulResp));
+      setUserAttendanceRank(extractItems(attendanceResp));
     } catch (err: any) {
       console.error("Dashboard fetch error", err);
-      // prefer server message if present
       const serverMsg = err?.response?.data?.message ?? err?.message;
-      setError(serverMsg ?? "Failed to load data");
+      setError(serverMsg ?? "Failed to load dashboard data");
     } finally {
       if (!cancelledRef.current) setLoading(false);
     }
@@ -81,13 +79,13 @@ export default function useFetchDashboardData() {
   useEffect(() => {
     cancelledRef.current = false;
     fetchAll();
+
     return () => {
       cancelledRef.current = true;
     };
   }, [fetchAll]);
 
   const refetch = useCallback(() => {
-    // call fetchAll again without reloading page
     fetchAll();
   }, [fetchAll]);
 
@@ -98,6 +96,10 @@ export default function useFetchDashboardData() {
     locations,
     permissions,
     amavasyaUserLocations,
+
+    // 🔥 NEW EXPORT
+    userAttendanceRank,
+
     loading,
     error,
     refetch,

@@ -268,6 +268,64 @@ const getUserAmavasyaAttendance = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * USER ATTENDANCE COUNT LIST
+ * Sorted by highest attendance
+ */
+const getUserAttendanceCountList = asyncHandler(async (req, res) => {
+  const data = await AmavasyaUserLocation.aggregate([
+    // optional: only active mappings
+    {
+      $match: { isActive: true },
+    },
+
+    // group by user
+    {
+      $group: {
+        _id: "$userId",
+        totalAttendance: { $sum: 1 },
+      },
+    },
+
+    // join user details
+    {
+      $lookup: {
+        from: "users",
+        localField: "_id",
+        foreignField: "_id",
+        as: "user",
+      },
+    },
+    { $unwind: "$user" },
+
+    // shape response
+    {
+      $project: {
+        _id: 0,
+        userId: "$user._id",
+        userName: "$user.userName",
+        email: "$user.email",
+        totalAttendance: 1,
+      },
+    },
+
+    // highest count on top
+    {
+      $sort: { totalAttendance: -1 },
+    },
+  ]);
+
+  return sendSuccess(res, {
+    status: 200,
+    message: "User attendance count fetched",
+    payload: {
+      items: data,
+      totalUsers: data.length,
+    },
+  });
+});
+
+
 export default {
   createAUL,
   getAllAUL,
@@ -276,4 +334,5 @@ export default {
   deleteAUL,
   getUserWiseAULList,
   getUserAmavasyaAttendance,
+  getUserAttendanceCountList
 };
