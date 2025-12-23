@@ -10,7 +10,7 @@ const api = axios.create({
 // Attach token if present
 api.interceptors.request.use((config) => {
 //   const token = localStorage.getItem("token");
-  const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5M2FiNDRiNzdhYmMwYzU5NTk5YWRhZiIsImVtYWlsIjoiYWRtaW5AZXhhbXBsZS5jb20iLCJtb2JpbGVOdW1iZXIiOiI5OTk5OTk5OTk5Iiwicm9sZXMiOm51bGwsImlhdCI6MTc2NTQ1NTEwOCwiZXhwIjoxNzY2MDU5OTA4fQ.ttm0nNyJjDORQLYC7pS8WLWkqxFkmvCGawrz3njnqnA";
+  const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5M2FiNDRiNzdhYmMwYzU5NTk5YWRhZiIsImVtYWlsIjoiYWRtaW5AZXhhbXBsZS5jb20iLCJtb2JpbGVOdW1iZXIiOiI5OTk5OTk5OTk5Iiwicm9sZXMiOm51bGwsImlhdCI6MTc2NjQ2NzA0NiwiZXhwIjoxNzY3MDcxODQ2fQ.mGHdFbXh_zkCa053ctVmKb2rcdrrr7EZvEDM9YaV4js";
   if (token && config?.headers) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

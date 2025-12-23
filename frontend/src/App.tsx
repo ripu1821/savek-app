@@ -27,6 +27,8 @@ import AmavasyaDetail from "./pages/amavasya/AmavasyaDetail";
 import AmavasyaUserLocationsList from "./pages/amavasya-user-locations/AmavasyaUserLocationsList";
 import AmavasyaUserLocationForm from "./pages/amavasya-user-locations/AmavasyaUserLocationForm";
 import AmavasyaUserLocationDetail from "./pages/amavasya-user-locations/AmavasyaUserLocationDetail";
+import AmavasyaAllListUserLocationsList from "./pages/amavasya-user-locations/AmavasyaAllListUserLocationsList";
+import AmavasyaAllListUserLocationDetail from "./pages/amavasya-user-locations/AmavasyaAllListUserLocationDetail";
 
 // Locations
 import LocationsList from "./pages/locations/LocationsList";
@@ -77,10 +79,12 @@ const App = () => (
             <Route path="/amavasya/:id/edit" element={<AmavasyaForm />} />
             
             {/* Amavasya User Locations */}
-            <Route path="/amavasyaUserLocation" element={<AmavasyaUserLocationsList />} />
+            <Route path="/amavasyaUserLocation/user" element={<AmavasyaUserLocationsList />} />
             <Route path="/amavasyaUserLocation/create" element={<AmavasyaUserLocationForm />} />
+            <Route path="/amavasyaUserLocation/user/:userId" element={<AmavasyaUserLocationDetail />} />
+            <Route path="/amavasyaUserLocation" element={<AmavasyaAllListUserLocationsList />} />
+            <Route path="/amavasyaUserLocation/:id" element={<AmavasyaAllListUserLocationDetail />} />
             <Route path="/amavasyaUserLocation/:id/edit" element={<AmavasyaUserLocationForm />} />
-            <Route path="/amavasyaUserLocation/:id" element={<AmavasyaUserLocationDetail />} />
             
             {/* Locations */}
             <Route path="/locations" element={<LocationsList />} />

@@ -76,6 +76,20 @@ router.get("/", authenticateUser, controller.getAllAUL);
 
 /**
  * @swagger
+ * /amavasyaUserLocation/userWise:
+ *   get:
+ *     summary: Get user-wise amavasya list (1 user = 1 row)
+ *     tags: [AmavasyaUserLocations]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User-wise list retrieved
+ */
+router.get("/userWise", authenticateUser, controller.getUserWiseAULList);
+
+/**
+ * @swagger
  * /amavasyaUserLocation/{id}:
  *   get:
  *     summary: Get mapping by ID
@@ -138,5 +152,29 @@ router.put(
  *         description: Mapping deleted
  */
 router.delete("/:id", authenticateUser, controller.deleteAUL);
+
+/**
+ * @swagger
+ * /amavasyaUserLocation/userAttendance/{userId}:
+ *   get:
+ *     summary: Get user amavasya attendance (Present / Absent)
+ *     tags: [AmavasyaUserLocations]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - name: userId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User attendance list retrieved
+ */
+router.get(
+  "/userAttendance/:userId",
+  authenticateUser,
+  controller.getUserAmavasyaAttendance
+);
 
 export default router;
