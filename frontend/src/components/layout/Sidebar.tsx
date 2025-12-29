@@ -8,27 +8,52 @@ import {
   ChevronLeft,
   Menu,
   LayoutDashboard,
+  Map,
+  UserCheck,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+/* =========================
+   NAVIGATION ITEMS
+========================= */
 const navigationItems = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  { title: "Users", href: "/users", icon: Users },
-  { title: "Amavasya", href: "/amavasya", icon: Moon },
-  { title: "Locations", href: "/locations", icon: MapPin },
+  {
+    title: "Dashboard",
+    href: "/",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Users",
+    href: "/users",
+    icon: Users,
+  },
+  {
+    title: "Amavasya",
+    href: "/amavasya",
+    icon: Moon,
+  },
+  {
+    title: "Locations",
+    href: "/locations",
+    icon: Map, // 🌍 list of locations
+  },
   {
     title: "User Amavasya Attendance",
     href: "/amavasyaUserLocation/user",
-    icon: MapPin,
+    icon: UserCheck, // ✅ user attendance
   },
   {
     title: "Amavasya User Location",
     href: "/amavasyaUserLocation",
-    icon: MapPin,
+    icon: MapPin, // 📍 specific location
   },
-  { title: "Roles", href: "/roles", icon: Shield },
+  {
+    title: "Roles",
+    href: "/roles",
+    icon: Shield,
+  },
 ];
 
 interface SidebarProps {
@@ -39,7 +64,9 @@ export function Sidebar({ className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const location = useLocation();
 
-  /** ACTIVE ROUTE LOGIC */
+  /* =========================
+     ACTIVE ROUTE LOGIC
+  ========================= */
   const isNavActive = (href: string) => {
     if (location.pathname === href) return true;
 
@@ -56,7 +83,7 @@ export function Sidebar({ className }: SidebarProps) {
   return (
     <>
       {/* =========================
-          MOBILE / TABLET HEADER ONLY
+          MOBILE HEADER
       ========================== */}
       <header className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between border-b bg-background px-4 lg:hidden">
         <div className="flex items-center gap-3">
@@ -98,8 +125,8 @@ export function Sidebar({ className }: SidebarProps) {
         )}
       >
         {/* =========================
-            DESKTOP BRAND + COLLAPSE
-            ========================== */}
+            DESKTOP BRAND
+        ========================== */}
         <div className="flex items-center justify-between border-b px-3 py-2">
           <div className="hidden lg:flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-glow">
@@ -108,7 +135,6 @@ export function Sidebar({ className }: SidebarProps) {
               </span>
             </div>
 
-            {/* NAME ONLY WHEN EXPANDED */}
             {!collapsed && (
               <span className="font-semibold tracking-tight">SEVAK</span>
             )}
@@ -163,7 +189,7 @@ export function Sidebar({ className }: SidebarProps) {
         </nav>
       </aside>
 
-      {/* CONTENT TOP SPACER FOR MOBILE HEADER */}
+      {/* MOBILE HEADER SPACER */}
       <div className="h-16 lg:hidden" />
     </>
   );

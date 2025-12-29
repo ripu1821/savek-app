@@ -1,4 +1,3 @@
-// src/pages/Dashboard.tsx
 import { useMemo } from "react";
 import { Activity, Users, MapPin, Moon, Eye } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -14,58 +13,97 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import useFetchDashboardData from "@/hooks/useFetchDashboardData";
 
+/* =========================
+   STATUS → BADGE COLOR
+========================= */
+const amavasyaStatusVariant = (status?: string) => {
+  switch (status) {
+    case "PAST":
+      return "inactive"; // grey
+    case "CURRENT":
+      return "active"; // green
+    case "FUTURE":
+      return "primary"; // blue
+    default:
+      return "secondary";
+  }
+};
+
+/* =========================
+   STATUS → FULL ROW COLOR
+========================= */
+const amavasyaRowClass = (status?: string) => {
+  switch (status) {
+    case "CURRENT":
+      return "bg-green-50 border border-green-200 hover:bg-green-100";
+    case "FUTURE":
+      return "bg-blue-50 border border-blue-200 hover:bg-blue-100";
+    case "PAST":
+      return "bg-gray-50 border border-gray-200 hover:bg-gray-100";
+    default:
+      return "bg-muted/30 hover:bg-muted/50";
+  }
+};
+
+/* =========================
+   DATE ONLY FORMATTER
+========================= */
+const formatDateOnly = (date?: string) => {
+  if (!date) return "—";
+
+  return new Date(date).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
 
   const {
     amavasya,
     users,
-    roles,
     locations,
-    permissions,
-    amavasyaUserLocations,
     userAttendanceRank,
+    counts,
     loading,
     error,
   } = useFetchDashboardData();
 
-  // build statCards from live state
+  /* ================= STATS CARDS ================= */
   const statCards = useMemo(
     () => [
       {
         title: "Amavasya",
-        count: amavasya.length,
-        active: amavasya.filter((a) => a.isActive).length,
+        count: counts?.amavasya ?? 0,
         icon: Moon,
         href: "/amavasya",
         gradient: "from-violet-500 to-purple-500",
       },
       {
         title: "Users",
-        count: users.length,
-        active: users.filter((u) => u.isActive).length,
+        count: counts?.users ?? 0,
         icon: Users,
         href: "/users",
         gradient: "from-emerald-500 to-teal-500",
       },
       {
         title: "Locations",
-        count: locations.length,
-        active: locations.filter((l) => l.isActive).length,
+        count: counts?.locations ?? 0,
         icon: MapPin,
         href: "/locations",
         gradient: "from-rose-500 to-pink-500",
       },
       {
         title: "User Locations",
-        count: amavasyaUserLocations.length,
-        active: amavasyaUserLocations.filter((a) => a.isActive === true).length,
+        count: userAttendanceRank?.length ?? 0,
         icon: MapPin,
-        href: "/amavasya-user-locations",
+        href: "/amavasyaUserLocation/user",
         gradient: "from-indigo-500 to-purple-500",
       },
     ],
-    [amavasya, users, roles, locations, permissions, amavasyaUserLocations]
+    [counts, userAttendanceRank]
   );
 
   const recentActivities = amavasya.slice(0, 5);
@@ -116,12 +154,7 @@ export default function Dashboard() {
                       <p className="text-sm text-muted-foreground">
                         {stat.title}
                       </p>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
-                        <p className="text-3xl font-bold">{stat.count}</p>
-                        <span className="text-xs text-muted-foreground">
-                          ({stat.active} active)
-                        </span>
-                      </div>
+                      <p className="text-3xl font-bold">{stat.count}</p>
                     </div>
                   </GlassCardContent>
                 </GlassCard>
@@ -139,6 +172,7 @@ export default function Dashboard() {
               Upcoming Amavasya
             </GlassCardTitle>
           </GlassCardHeader>
+
           <GlassCardContent>
             <div className="space-y-3">
               {loading
@@ -150,22 +184,44 @@ export default function Dashboard() {
                   ))
                 : recentActivities.map((activity) => (
                     <div
-                      key={activity.id}
-                      className="flex items-center justify-between rounded-xl bg-muted/30 p-3 hover:bg-muted/50"
+                      key={activity._id}
+                      className={cn(
+                        "flex items-center justify-between rounded-xl p-3 transition-colors",
+                        amavasyaRowClass(activity.timeStatus)
+                      )}
                     >
                       <div>
                         <p className="font-medium">
                           {activity.month} {activity.year}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {activity.startDate &&
-                            new Date(activity.startDate).toLocaleDateString()}
-                        </p>
+
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          <p>
+                            <span className="font-medium text-foreground">
+                              Start:
+                            </span>{" "}
+                            {formatDateOnly(activity.startDate)}{" "}
+                            <span className="text-foreground font-medium">
+                              {activity.startTime}
+                            </span>
+                          </p>
+
+                          <p>
+                            <span className="font-medium text-foreground">
+                              End:
+                            </span>{" "}
+                            {formatDateOnly(activity.endDate)}{" "}
+                            <span className="text-foreground font-medium">
+                              {activity.endTime}
+                            </span>
+                          </p>
+                        </div>
                       </div>
+
                       <StatusBadge
-                        variant={activity.isActive ? "active" : "inactive"}
+                        variant={amavasyaStatusVariant(activity.timeStatus)}
                       >
-                        {activity.isActive ? "Active" : "Inactive"}
+                        {activity.timeStatus}
                       </StatusBadge>
                     </div>
                   ))}

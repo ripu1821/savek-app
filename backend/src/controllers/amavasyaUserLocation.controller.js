@@ -5,6 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { responseMessage } from "../utils/responseMessage.js";
 import { sendSuccess } from "../utils/responseHelpers.js";
 import amavasyaModel from "../models/amavasya.model.js";
+import User from "../models/user.model.js";
 
 /**
  * Create Relation Entry
@@ -192,46 +193,77 @@ const getUserWiseAULList = asyncHandler(async (req, res) => {
 
 /**
  * USER AMAVASYA ATTENDANCE
- * Present / Absent + Continuous Present Count
+ * ONLY Amavasya present in AmavasyaUserLocation table
  */
 const getUserAmavasyaAttendance = asyncHandler(async (req, res) => {
   const { userId } = req.params;
+  const { year, status, search } = req.query;
 
   if (!userId) {
-    throw new ApiError(400, responseMessage.required("userId is"));
+    throw new ApiError(400, "userId is required");
   }
 
-  // 1️⃣ All amavasya (latest first for streak logic)
-  const allAmavasyas = await amavasyaModel
-    .find()
-    .sort({ startDate: -1 }) // latest → old
+  const today = new Date();
+
+  /* -------------------------------------------------
+     0️⃣ FETCH USER DETAILS (FOR HEADER)
+  -------------------------------------------------*/
+  const user = await User.findById(userId)
+    .select("userName email mobileNumber")
     .lean();
 
-  // 2️⃣ User records
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  /* -------------------------------------------------
+     1️⃣ USER ATTENDANCE RECORDS
+  -------------------------------------------------*/
   const userRecords = await AmavasyaUserLocation.find({ userId })
     .populate("locationId", "name")
     .lean();
 
-  // quick lookup
+  if (!userRecords.length) {
+    return sendSuccess(res, {
+      status: 200,
+      message: "No amavasya attendance found",
+      payload: {
+        user,
+        userId,
+        totalAmavasya: 0,
+        present: 0,
+        absent: 0,
+        upcoming: 0,
+        items: [],
+      },
+    });
+  }
+
+  /* -------------------------------------------------
+     2️⃣ AMAVASYA IDS
+  -------------------------------------------------*/
+  const amavasyaIds = userRecords.map((r) => r.amavasyaId);
+
+  /* -------------------------------------------------
+     3️⃣ FETCH AMAVASYA
+  -------------------------------------------------*/
+  const query = { _id: { $in: amavasyaIds } };
+  if (year) query.year = Number(year);
+
+  const amavasyaList = await amavasyaModel.find(query).lean();
+
+  /* -------------------------------------------------
+     4️⃣ MAP (amavasyaId → record)
+  -------------------------------------------------*/
   const userMap = new Map();
-  userRecords.forEach((r) => {
-    userMap.set(String(r.amavasyaId), r);
-  });
+  userRecords.forEach((r) => userMap.set(String(r.amavasyaId), r));
 
-  let continuousPresentCount = 0;
-
-  // 3️⃣ Build attendance list + streak
-  const result = allAmavasyas.map((a) => {
+  /* -------------------------------------------------
+     5️⃣ BUILD FINAL ITEMS
+  -------------------------------------------------*/
+  let items = amavasyaList.map((a) => {
     const record = userMap.get(String(a._id));
-    const status = record ? "Present" : "Absent";
-
-    // streak calculation (latest first)
-    if (status === "Present" && continuousPresentCount !== -1) {
-      continuousPresentCount++;
-    } else if (status === "Absent") {
-      // break streak permanently
-      continuousPresentCount = -1;
-    }
+    const isFuture = new Date(a.startDate) > today;
 
     return {
       amavasyaId: a._id,
@@ -239,31 +271,51 @@ const getUserAmavasyaAttendance = asyncHandler(async (req, res) => {
       year: a.year,
       startDate: a.startDate,
       endDate: a.endDate,
-      status,
+      status: isFuture ? "Upcoming" : record ? "Present" : "Absent",
       location: record?.locationId?.name || null,
       note: record?.note || null,
     };
   });
 
-  // fix negative streak
-  const finalStreak =
-    continuousPresentCount === -1
-      ? result.findIndex((r) => r.status === "Absent")
-      : continuousPresentCount;
+  /* -------------------------------------------------
+     6️⃣ FILTERS
+  -------------------------------------------------*/
+  if (status) {
+    items = items.filter((i) => i.status === status);
+  }
 
+  if (search) {
+    const s = search.toLowerCase();
+    items = items.filter((i) => i.month.toLowerCase().includes(s));
+  }
+
+  /* -------------------------------------------------
+     7️⃣ SORT (LATEST FIRST)
+  -------------------------------------------------*/
+  items.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+
+  /* -------------------------------------------------
+     8️⃣ COUNTS
+  -------------------------------------------------*/
+  const totalAmavasya = items.length;
+  const present = items.filter((i) => i.status === "Present").length;
+  const absent = items.filter((i) => i.status === "Absent").length;
+  const upcoming = items.filter((i) => i.status === "Upcoming").length;
+
+  /* -------------------------------------------------
+     9️⃣ RESPONSE
+  -------------------------------------------------*/
   return sendSuccess(res, {
     status: 200,
     message: "User amavasya attendance fetched",
     payload: {
+      user, // 👈 USER DETAILS FOR HEADER
       userId,
-      totalAmavasya: allAmavasyas.length,
-      present: result.filter((r) => r.status === "Present").length,
-      absent: result.filter((r) => r.status === "Absent").length,
-
-      // 🔥 NEW COUNTS
-      continuousPresentCount: finalStreak < 0 ? 0 : finalStreak,
-
-      items: result.reverse(), // old → new (UI friendly)
+      totalAmavasya,
+      present,
+      absent,
+      upcoming,
+      items,
     },
   });
 });
@@ -325,6 +377,77 @@ const getUserAttendanceCountList = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * BULK CREATE AUL (MULTIPLE USERS)
+ * - Same amavasyaId
+ * - Skip users already assigned
+ */
+const createBulkAUL = asyncHandler(async (req, res) => {
+  const { amavasyaId, userIds, locationId, note } = req.body;
+
+  if (
+    !amavasyaId ||
+    !Array.isArray(userIds) ||
+    !userIds.length ||
+    !locationId
+  ) {
+    throw new ApiError(
+      400,
+      "amavasyaId, userIds (array), locationId are required"
+    );
+  }
+
+  /* -------------------------------------------------
+     1️⃣ FIND ALREADY ASSIGNED USERS
+  -------------------------------------------------*/
+  const existingRecords = await AmavasyaUserLocation.find({
+    amavasyaId,
+    userId: { $in: userIds },
+  }).select("userId");
+
+  const existingUserIds = new Set(existingRecords.map((r) => String(r.userId)));
+
+  /* -------------------------------------------------
+     2️⃣ FILTER NEW USERS ONLY
+  -------------------------------------------------*/
+  const newEntries = userIds
+    .filter((uid) => !existingUserIds.has(String(uid)))
+    .map((uid) => ({
+      amavasyaId,
+      userId: uid,
+      locationId,
+      note: note || null,
+      createdBy: req.user?._id || null,
+    }));
+
+  if (!newEntries.length) {
+    return sendSuccess(res, {
+      status: 200,
+      message: "All users already assigned to this amavasya",
+      payload: {
+        inserted: 0,
+        skipped: userIds.length,
+      },
+    });
+  }
+
+  /* -------------------------------------------------
+     3️⃣ INSERT NEW RECORDS
+  -------------------------------------------------*/
+  const inserted = await AmavasyaUserLocation.insertMany(newEntries);
+
+  /* -------------------------------------------------
+     4️⃣ RESPONSE
+  -------------------------------------------------*/
+  return sendSuccess(res, {
+    status: 201,
+    message: "Users assigned to amavasya successfully",
+    payload: {
+      inserted: inserted.length,
+      skipped: userIds.length - inserted.length,
+    },
+  });
+});
 
 export default {
   createAUL,
@@ -334,5 +457,6 @@ export default {
   deleteAUL,
   getUserWiseAULList,
   getUserAmavasyaAttendance,
-  getUserAttendanceCountList
+  getUserAttendanceCountList,
+  createBulkAUL,
 };

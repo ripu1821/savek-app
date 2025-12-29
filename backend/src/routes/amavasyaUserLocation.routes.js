@@ -195,5 +195,39 @@ router.get(
   controller.getUserAttendanceCountList
 );
 
+/**
+ * @swagger
+ * /amavasyaUserLocation/bulk:
+ *   post:
+ *     summary: Bulk assign users to same amavasya (skip existing users)
+ *     tags: [AmavasyaUserLocations]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amavasyaId
+ *               - userIds
+ *               - locationId
+ *             properties:
+ *               amavasyaId:
+ *                 type: string
+ *               userIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               locationId:
+ *                 type: string
+ *               note:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Users assigned successfully
+ */
+router.post("/bulk", authenticateUser, controller.createBulkAUL);
 
 export default router;

@@ -12,6 +12,7 @@ import activityPermissionRouter from "./activityPermissionRouter.js";
 import locationRouter from "./location.routes.js";
 import amavasyaRouter from "./amavasya.routes.js";
 import amavasyaUserLocationRouter from "./amavasyaUserLocation.routes.js";
+import dashboardRouter from "./dashboard.router.js";
 
 const router = express.Router();
 
@@ -26,4 +27,5 @@ router.use("/activityPermission", activityPermissionRouter);
 router.use("/location", locationRouter);
 router.use("/amavasya", amavasyaRouter);
 router.use("/amavasyaUserLocation", amavasyaUserLocationRouter);
+router.use("/dashboard", dashboardRouter);
 export default router;

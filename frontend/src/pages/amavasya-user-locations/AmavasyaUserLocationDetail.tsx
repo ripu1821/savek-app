@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Calendar, MapPin, Moon } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Moon,
+  Search,
+  RotateCcw,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -21,13 +28,32 @@ export default function AmavasyaUserLocationDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🔥 FILTER STATES
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+
+  // year input + api year
+  const [yearInput, setYearInput] = useState("");
+  const [year, setYear] = useState("all");
+
+  /* =====================
+      API CALL
+  ====================== */
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
+        const params: any = {};
+
+        if (year !== "all") params.year = year;
+        if (status !== "all") params.status = status;
+        if (search.trim()) params.search = search.trim();
+
         const resp = await api.get(
-          `/amavasyaUserLocation/userAttendance/${userId}`
+          `/amavasyaUserLocation/userAttendance/${userId}`,
+          { params }
         );
+
         setData(resp?.data?.data);
       } catch (err: any) {
         setError(
@@ -39,8 +65,9 @@ export default function AmavasyaUserLocationDetail() {
         setLoading(false);
       }
     }
+
     load();
-  }, [userId]);
+  }, [userId, year, status, search]);
 
   if (loading) {
     return (
@@ -64,10 +91,16 @@ export default function AmavasyaUserLocationDetail() {
 
   return (
     <div className="page-enter">
-      {/* HEADER */}
+      {/* =====================
+          HEADER
+      ====================== */}
       <PageHeader
         title="Amavasya Attendance"
-        description="User presence across all amavasya"
+        description={
+          data?.user
+            ? `${data.user.name} • ${data.user.email}`
+            : "User presence across all amavasya"
+        }
         breadcrumbs={[
           { label: "Dashboard", href: "/" },
           { label: "User Locations", href: "/amavasyaUserLocation" },
@@ -85,9 +118,31 @@ export default function AmavasyaUserLocationDetail() {
       />
 
       {/* =====================
-          SUMMARY CARDS
+          USER DETAILS CARD
       ====================== */}
-      <div className="grid gap-4 mb-6 md:grid-cols-4">
+      <GlassCard className="mb-6">
+        <GlassCardContent className="p-4 grid gap-3 md:grid-cols-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Name</p>
+            <p className="font-medium">{data.user?.userName ?? "-"}</p>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground">Email</p>
+            <p className="font-medium">{data.user?.email ?? "-"}</p>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground">Mobile</p>
+            <p className="font-medium">{data.user?.mobileNumber ?? "-"}</p>
+          </div>
+        </GlassCardContent>
+      </GlassCard>
+
+      {/* =====================
+          SUMMARY CARDS (DO NOT REMOVE)
+      ====================== */}
+      {/* <div className="grid gap-4 mb-6 md:grid-cols-4">
         <GlassCard>
           <GlassCardContent className="p-4 text-center">
             <p className="text-sm text-muted-foreground">Total Amavasya</p>
@@ -109,7 +164,6 @@ export default function AmavasyaUserLocationDetail() {
           </GlassCardContent>
         </GlassCard>
 
-        {/* 🔥 NEW COUNT */}
         <GlassCard>
           <GlassCardContent className="p-4 text-center">
             <p className="text-sm text-muted-foreground">Continuous Present</p>
@@ -118,12 +172,73 @@ export default function AmavasyaUserLocationDetail() {
             </p>
           </GlassCardContent>
         </GlassCard>
+      </div> */}
+
+      {/* =====================
+          FILTER BAR
+      ====================== */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search month (Jan, Feb...)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 w-56 rounded-md border pl-8 pr-3 text-sm"
+          />
+        </div>
+
+        <input
+          type="number"
+          placeholder="Year"
+          value={yearInput}
+          onChange={(e) => {
+            const val = e.target.value;
+
+            if (val === "") {
+              setYearInput("");
+              setYear("all");
+              return;
+            }
+
+            if (val.length > 4) return;
+
+            setYearInput(val);
+
+            if (val.length === 4) setYear(val);
+            else setYear("all");
+          }}
+          className="h-9 w-32 rounded-md border px-3 text-sm"
+          min={1900}
+          max={2100}
+        />
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSearch("");
+            setStatus("all");
+            setYearInput("");
+            setYear("all");
+          }}
+        >
+          <RotateCcw className="h-4 w-4 mr-1" />
+          Reset
+        </Button>
       </div>
 
       {/* =====================
           ATTENDANCE LIST
       ====================== */}
       <div className="space-y-4">
+        {data.items.length === 0 && (
+          <p className="text-center text-muted-foreground py-6">
+            No records found
+          </p>
+        )}
+
         {data.items.map((item: any) => {
           const isAbsent = item.status === "Absent";
 

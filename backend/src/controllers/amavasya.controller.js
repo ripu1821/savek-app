@@ -39,9 +39,22 @@ export const createAmavasya = asyncHandler(async (req, res) => {
  * Get All
  */
 export const getAllAmavasya = asyncHandler(async (req, res) => {
-  const list = await Amavasya.find().sort({ startDate: 1 }).lean();
-  const payload = { items: list, total: list.length, page: 1, limit: list.length, totalPages: 1, currentPageItems: list.length, previousPage: false, nextPage: false };
-  return sendSuccess(res, { message: "Amavasya list fetched", status: 200, payload });
+  const list = await Amavasya.find().sort({ startDate: -1 }).lean();
+  const payload = {
+    items: list,
+    total: list.length,
+    page: 1,
+    limit: list.length,
+    totalPages: 1,
+    currentPageItems: list.length,
+    previousPage: false,
+    nextPage: false,
+  };
+  return sendSuccess(res, {
+    message: "Amavasya list fetched",
+    status: 200,
+    payload,
+  });
 });
 /**
  * Get By ID
