@@ -46,13 +46,19 @@ const getDashboardCounts = asyncHandler(async (req, res) => {
  * Sorted by highest attendance
  */
 const getUserAttendanceCountList = asyncHandler(async (req, res) => {
-  const data = await amavasyaUserLocationModel.aggregate([
-    // optional: only active mappings
+  const { search = "" } = req.query;
+
+  const pipeline = [
+    /* =========================
+       ONLY ACTIVE
+    ========================= */
     {
       $match: { isActive: true },
     },
 
-    // group by user
+    /* =========================
+       GROUP BY USER
+    ========================= */
     {
       $group: {
         _id: "$userId",
@@ -60,7 +66,9 @@ const getUserAttendanceCountList = asyncHandler(async (req, res) => {
       },
     },
 
-    // join user details
+    /* =========================
+       JOIN USER
+    ========================= */
     {
       $lookup: {
         from: "users",
@@ -71,7 +79,25 @@ const getUserAttendanceCountList = asyncHandler(async (req, res) => {
     },
     { $unwind: "$user" },
 
-    // shape response
+    /* =========================
+       SEARCH (OPTIONAL)
+    ========================= */
+    ...(search
+      ? [
+          {
+            $match: {
+              $or: [
+                { "user.userName": { $regex: search, $options: "i" } },
+                { "user.email": { $regex: search, $options: "i" } },
+              ],
+            },
+          },
+        ]
+      : []),
+
+    /* =========================
+       SHAPE RESPONSE
+    ========================= */
     {
       $project: {
         _id: 0,
@@ -82,11 +108,18 @@ const getUserAttendanceCountList = asyncHandler(async (req, res) => {
       },
     },
 
-    // highest count on top
+    /* =========================
+       SORT
+    ========================= */
     {
-      $sort: { totalAttendance: -1 },
+      $sort: {
+        totalAttendance: -1,
+        userName: 1, // stable order
+      },
     },
-  ]);
+  ];
+
+  const data = await amavasyaUserLocationModel.aggregate(pipeline);
 
   return sendSuccess(res, {
     status: 200,

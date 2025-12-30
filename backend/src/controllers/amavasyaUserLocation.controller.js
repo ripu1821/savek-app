@@ -3,7 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import { responseMessage } from "../utils/responseMessage.js";
-import { sendSuccess } from "../utils/responseHelpers.js";
+import { makePagination, sendSuccess } from "../utils/responseHelpers.js";
 import amavasyaModel from "../models/amavasya.model.js";
 import User from "../models/user.model.js";
 
@@ -37,26 +37,76 @@ export const createAUL = asyncHandler(async (req, res) => {
  * Get All Relations
  */
 export const getAllAUL = asyncHandler(async (req, res) => {
-  const records = await AmavasyaUserLocation.find()
+  let { amavasyaId, userId, locationId, q, page, limit } = req.query;
+
+  page = Number(page);
+  limit = Math.min(Number(limit), 100);
+  const skip = (page - 1) * limit;
+
+  /* ----------------------------
+     FILTERS
+  ----------------------------- */
+  const filter = {};
+
+  if (amavasyaId) filter.amavasyaId = amavasyaId;
+  if (userId) filter.userId = userId;
+  if (locationId) filter.locationId = locationId;
+
+  /* ----------------------------
+     BASE QUERY
+  ----------------------------- */
+  let query = AmavasyaUserLocation.find(filter)
     .populate("amavasyaId")
-    .populate("userId", "userName email")
+    .populate("userId", "userName email mobileNumber")
     .populate("locationId", "name")
     .sort({ createdAt: -1 })
-    .lean();
+    .skip(skip)
+    .limit(limit);
 
-  // non-paginated list: return items in payload.items
-  const payload = {
+  /* ----------------------------
+     SEARCH (USER / LOCATION)
+  ----------------------------- */
+  if (q) {
+    query = AmavasyaUserLocation.find(filter)
+      .populate({
+        path: "userId",
+        match: {
+          $or: [
+            { userName: { $regex: q, $options: "i" } },
+            { email: { $regex: q, $options: "i" } },
+            { mobileNumber: { $regex: q, $options: "i" } },
+          ],
+        },
+        select: "userName email mobileNumber",
+      })
+      .populate({
+        path: "locationId",
+        match: { name: { $regex: q, $options: "i" } },
+        select: "name",
+      })
+      .populate("amavasyaId")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+  }
+
+  /* ----------------------------
+     EXECUTION
+  ----------------------------- */
+  const [records, total] = await Promise.all([
+    query.lean(),
+    AmavasyaUserLocation.countDocuments(filter),
+  ]);
+
+  const payload = makePagination({
     items: records,
-    total: records.length,
-    page: 1,
-    limit: records.length,
-    totalPages: 1,
-    currentPageItems: records.length,
-    previousPage: false,
-    nextPage: false,
-  };
+    total,
+    page,
+    limit,
+  });
+
   return sendSuccess(res, {
-    message: "All relations fetched",
+    message: "Amavasya user locations fetched successfully",
     status: 200,
     payload,
   });
@@ -119,10 +169,22 @@ export const deleteAUL = asyncHandler(async (req, res) => {
 });
 
 /**
- * USER WISE LIST
+ * USER WISE LIST (WITH PAGINATION LIKE getUsers)
  */
 const getUserWiseAULList = asyncHandler(async (req, res) => {
-  const data = await AmavasyaUserLocation.aggregate([
+  let { page, limit } = req.query;
+
+  // -----------------------------
+  // SAFE PAGINATION (same pattern)
+  // -----------------------------
+  page = Math.max(Number(page) || 1, 1);
+  limit = Math.min(Number(limit) || 10, 100);
+  const skip = (page - 1) * limit;
+
+  // -----------------------------
+  // BASE AGGREGATION (NO PAGINATION)
+  // -----------------------------
+  const basePipeline = [
     {
       $lookup: {
         from: "amavasyas",
@@ -154,9 +216,7 @@ const getUserWiseAULList = asyncHandler(async (req, res) => {
     { $unwind: "$location" },
 
     // latest amavasya first
-    {
-      $sort: { "amavasya.startDate": -1 },
-    },
+    { $sort: { "amavasya.startDate": -1 } },
 
     // group by user
     {
@@ -179,15 +239,36 @@ const getUserWiseAULList = asyncHandler(async (req, res) => {
     },
 
     { $sort: { "latestAmavasya.startDate": -1 } },
+  ];
+
+  // -----------------------------
+  // EXECUTE: ITEMS + TOTAL
+  // -----------------------------
+  const [items, totalResult] = await Promise.all([
+    AmavasyaUserLocation.aggregate([
+      ...basePipeline,
+      { $skip: skip },
+      { $limit: limit },
+    ]),
+    AmavasyaUserLocation.aggregate([...basePipeline, { $count: "count" }]),
   ]);
+
+  const total = totalResult[0]?.count ?? 0;
+
+  // -----------------------------
+  // SAME PAGINATION FORMAT
+  // -----------------------------
+  const payload = makePagination({
+    items,
+    total,
+    page,
+    limit,
+  });
 
   return sendSuccess(res, {
     status: 200,
     message: "User wise amavasya list fetched",
-    payload: {
-      items: data,
-      total: data.length,
-    },
+    payload,
   });
 });
 

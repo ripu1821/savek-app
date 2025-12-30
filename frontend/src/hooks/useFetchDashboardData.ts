@@ -12,10 +12,8 @@ function extractItems(resp: any): AnyArray {
 
   if (Array.isArray(payload?.items)) return payload.items;
   if (Array.isArray(data?.items)) return data.items;
-
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(data)) return data;
-
   if (Array.isArray(resp?.data)) return resp.data;
 
   return [];
@@ -25,7 +23,7 @@ function extractItems(resp: any): AnyArray {
    HOOK
 ========================= */
 export default function useFetchDashboardData() {
-  // 🔹 LIST DATA (unchanged)
+  // lists
   const [amavasya, setAmavasya] = useState<AnyArray>([]);
   const [users, setUsers] = useState<AnyArray>([]);
   const [roles, setRoles] = useState<AnyArray>([]);
@@ -35,7 +33,7 @@ export default function useFetchDashboardData() {
     []
   );
 
-  // 🔹 COUNT DATA (🔥 IMPORTANT – NEW)
+  // counts
   const [counts, setCounts] = useState({
     users: 0,
     roles: 0,
@@ -45,8 +43,11 @@ export default function useFetchDashboardData() {
     amavasyaUserLocations: 0,
   });
 
-  // 🔹 Attendance leaderboard
+  // leaderboard
   const [userAttendanceRank, setUserAttendanceRank] = useState<AnyArray>([]);
+
+  // 🔍 SEARCH STATE
+  const [attendanceSearch, setAttendanceSearch] = useState("");
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export default function useFetchDashboardData() {
   const cancelledRef = useRef(false);
 
   /* =========================
-     FETCH ALL DASHBOARD DATA
+     FETCH ALL
   ========================= */
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -70,7 +71,7 @@ export default function useFetchDashboardData() {
         pResp,
         aulResp,
         attendanceResp,
-        countsResp, // ✅ COUNT API RESPONSE
+        countsResp,
       ] = await Promise.all([
         api.get("/dashboard/amavasya"),
         api.get("/user"),
@@ -78,33 +79,31 @@ export default function useFetchDashboardData() {
         api.get("/location"),
         api.get("/permission"),
         api.get("/amavasyaUserLocation"),
-        api.get("/dashboard/userAttendance"),
-        api.get("/dashboard/counts"), // 🔥 COUNT API
+        api.get("/dashboard/userAttendance", {
+          params: {
+            search: attendanceSearch || undefined, // 🔥 SEARCH PARAM
+          },
+        }),
+        api.get("/dashboard/counts"),
       ]);
 
       if (cancelledRef.current) return;
 
-      // lists (same as before)
       setAmavasya(extractItems(amResp));
       setUsers(extractItems(uResp));
       setRoles(extractItems(rResp));
       setLocations(extractItems(lResp));
       setPermissions(extractItems(pResp));
       setAmavasyaUserLocations(extractItems(aulResp));
-
-      // leaderboard
       setUserAttendanceRank(extractItems(attendanceResp));
-
-      // 🔥 SET COUNTS (THIS WAS MISSING)
-      setCounts(countsResp?.data.data ?? {});
+      setCounts(countsResp?.data?.data ?? {});
     } catch (err: any) {
-      console.error("Dashboard fetch error", err);
       const serverMsg = err?.response?.data?.message ?? err?.message;
       setError(serverMsg ?? "Failed to load dashboard data");
     } finally {
       if (!cancelledRef.current) setLoading(false);
     }
-  }, []);
+  }, [attendanceSearch]);
 
   useEffect(() => {
     fetchAll();
@@ -113,13 +112,6 @@ export default function useFetchDashboardData() {
     };
   }, [fetchAll]);
 
-  const refetch = useCallback(() => {
-    fetchAll();
-  }, [fetchAll]);
-
-  /* =========================
-     EXPORT
-  ========================= */
   return {
     // lists
     amavasya,
@@ -129,14 +121,17 @@ export default function useFetchDashboardData() {
     permissions,
     amavasyaUserLocations,
 
-    // 🔥 COUNTS (NEW & REQUIRED)
+    // counts
     counts,
 
     // leaderboard
     userAttendanceRank,
 
+    // 🔍 search
+    attendanceSearch,
+    setAttendanceSearch,
+
     loading,
     error,
-    refetch,
   };
 }

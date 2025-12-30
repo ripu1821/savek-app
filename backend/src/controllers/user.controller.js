@@ -47,16 +47,8 @@ const createUser = asyncHandler(async (req, res) => {
  * Get all users with filters & pagination
  */
 const getUsers = asyncHandler(async (req, res) => {
-  let {
-    userName,
-    roleId,
-    roleName,
-    mobileNumber,
-    email,
-    q,
-    page = 1,
-    limit = 20,
-  } = req.query;
+  let { userName, roleId, roleName, mobileNumber, email, q, page, limit } =
+    req.query;
 
   page = Number(page);
   limit = Math.min(Number(limit), 100);

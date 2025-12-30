@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Activity, Users, MapPin, Moon, Eye } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -19,11 +19,11 @@ import useFetchDashboardData from "@/hooks/useFetchDashboardData";
 const amavasyaStatusVariant = (status?: string) => {
   switch (status) {
     case "PAST":
-      return "inactive"; // grey
+      return "inactive";
     case "CURRENT":
-      return "active"; // green
+      return "active";
     case "FUTURE":
-      return "primary"; // blue
+      return "primary";
     default:
       return "secondary";
   }
@@ -61,15 +61,20 @@ const formatDateOnly = (date?: string) => {
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const {
-    amavasya,
-    users,
-    locations,
-    userAttendanceRank,
-    counts,
-    loading,
-    error,
-  } = useFetchDashboardData();
+  const { amavasya, users, userAttendanceRank, counts, loading, error } =
+    useFetchDashboardData();
+
+  /* 🔍 SEARCH STATE (ONLY FOR ATTENDEES) */
+  const [attendanceSearch, setAttendanceSearch] = useState("");
+
+  /* 🔍 FILTERED ATTENDEES */
+  const filteredAttendance = useMemo(() => {
+    if (!attendanceSearch) return userAttendanceRank;
+
+    return userAttendanceRank.filter((item) =>
+      item.userName?.toLowerCase().includes(attendanceSearch.toLowerCase())
+    );
+  }, [attendanceSearch, userAttendanceRank]);
 
   /* ================= STATS CARDS ================= */
   const statCards = useMemo(
@@ -137,14 +142,11 @@ export default function Dashboard() {
                 className="group"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <GlassCard
-                  variant="elevated"
-                  className="transition-all duration-300 hover:scale-[1.02] hover:shadow-xl animate-slide-up"
-                >
+                <GlassCard variant="elevated">
                   <GlassCardContent className="flex items-center gap-4 min-h-[96px]">
                     <div
                       className={cn(
-                        "flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg transition-transform duration-300 group-hover:scale-110",
+                        "flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg",
                         stat.gradient
                       )}
                     >
@@ -163,7 +165,7 @@ export default function Dashboard() {
       </div>
 
       {/* ================= CONTENT GRID ================= */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* ===== Upcoming Amavasya ===== */}
         <GlassCard variant="elevated">
           <GlassCardHeader>
@@ -186,7 +188,7 @@ export default function Dashboard() {
                     <div
                       key={activity._id}
                       className={cn(
-                        "flex items-center justify-between rounded-xl p-3 transition-colors",
+                        "flex items-center justify-between rounded-xl p-3",
                         amavasyaRowClass(activity.timeStatus)
                       )}
                     >
@@ -194,28 +196,10 @@ export default function Dashboard() {
                         <p className="font-medium">
                           {activity.month} {activity.year}
                         </p>
-
-                        <div className="text-xs text-muted-foreground space-y-0.5">
-                          <p>
-                            <span className="font-medium text-foreground">
-                              Start:
-                            </span>{" "}
-                            {formatDateOnly(activity.startDate)}{" "}
-                            <span className="text-foreground font-medium">
-                              {activity.startTime}
-                            </span>
-                          </p>
-
-                          <p>
-                            <span className="font-medium text-foreground">
-                              End:
-                            </span>{" "}
-                            {formatDateOnly(activity.endDate)}{" "}
-                            <span className="text-foreground font-medium">
-                              {activity.endTime}
-                            </span>
-                          </p>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDateOnly(activity.startDate)} →{" "}
+                          {formatDateOnly(activity.endDate)}
+                        </p>
                       </div>
 
                       <StatusBadge
@@ -230,7 +214,7 @@ export default function Dashboard() {
         </GlassCard>
 
         {/* ===== Recent Users ===== */}
-        <GlassCard variant="elevated">
+        {/* <GlassCard variant="elevated">
           <GlassCardHeader>
             <GlassCardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
@@ -239,37 +223,20 @@ export default function Dashboard() {
           </GlassCardHeader>
           <GlassCardContent>
             <div className="space-y-3">
-              {loading
-                ? Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-12 w-full rounded-md bg-muted/20 animate-pulse"
-                    />
-                  ))
-                : users.slice(0, 5).map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between rounded-xl bg-muted/30 p-3 hover:bg-muted/50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
-                          {user.userName?.charAt(0) ?? "U"}
-                        </div>
-                        <div>
-                          <p className="font-medium">{user.userName}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {user.email}
-                          </p>
-                        </div>
-                      </div>
-                      <StatusBadge variant="primary" showDot={false}>
-                        {user.roleId?.name ?? "—"}
-                      </StatusBadge>
-                    </div>
-                  ))}
+              {users.slice(0, 5).map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between rounded-xl bg-muted/30 p-3"
+                >
+                  <p className="font-medium">{user.userName}</p>
+                  <StatusBadge variant="primary" showDot={false}>
+                    {user.roleId?.name ?? "—"}
+                  </StatusBadge>
+                </div>
+              ))}
             </div>
           </GlassCardContent>
-        </GlassCard>
+        </GlassCard> */}
 
         {/* ===== Top Amavasya Attendees ===== */}
         <GlassCard variant="elevated">
@@ -278,32 +245,51 @@ export default function Dashboard() {
               <Activity className="h-5 w-5 text-primary" />
               Top Amavasya Attendees
             </GlassCardTitle>
+
+            {/* 🔍 SEARCH */}
+          <div className="relative mt-3">
+  <input
+    type="text"
+    placeholder="Search user..."
+    value={attendanceSearch}
+    onChange={(e) => setAttendanceSearch(e.target.value)}
+    className="w-full rounded-md border bg-background px-3 py-2 pr-9 text-sm
+               focus:outline-none focus:ring-2 focus:ring-primary"
+  />
+
+  {attendanceSearch && (
+    <button
+      type="button"
+      onClick={() => setAttendanceSearch("")}
+      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+      title="Clear"
+    >
+      ✕
+    </button>
+  )}
+</div>
+
           </GlassCardHeader>
 
           <GlassCardContent>
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
               {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-12 w-full rounded-md bg-muted/20 animate-pulse"
-                  />
-                ))
-              ) : userAttendanceRank?.length ? (
-                userAttendanceRank.slice(0, 5).map((item, index) => (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : filteredAttendance.length ? (
+                filteredAttendance.map((item, index) => (
                   <div
                     key={item.userId}
-                    className="flex items-center justify-between rounded-xl bg-muted/30 p-3 hover:bg-muted/50"
+                    className="flex items-center justify-between rounded-xl bg-muted/30 p-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                      <div className="h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center">
                         {index + 1}
                       </div>
                       <div>
                         <p className="font-medium">{item.userName}</p>
                         <p className="text-xs text-muted-foreground">
                           Total Attendance:{" "}
-                          <span className="font-semibold text-foreground">
+                          <span className="font-semibold">
                             {item.totalAttendance}
                           </span>
                         </p>
@@ -315,7 +301,6 @@ export default function Dashboard() {
                         navigate(`/amavasyaUserLocation/user/${item.userId}`)
                       }
                       className="p-2 rounded-lg hover:bg-primary/10"
-                      title="View Attendance"
                     >
                       <Eye className="h-5 w-5 text-primary" />
                     </button>
@@ -323,7 +308,7 @@ export default function Dashboard() {
                 ))
               ) : (
                 <p className="text-center text-sm text-muted-foreground">
-                  No attendance data found
+                  No matching users found
                 </p>
               )}
             </div>

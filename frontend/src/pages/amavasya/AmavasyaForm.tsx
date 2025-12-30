@@ -1,7 +1,7 @@
-// src/pages/AmavasyaForm.tsx
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { format } from "date-fns";
+
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { FloatingInput } from "@/components/ui/floating-input";
@@ -20,13 +20,18 @@ import {
   GlassCardHeader,
   GlassCardTitle,
 } from "@/components/ui/glass-card";
+
 import { toast } from "sonner";
 import { Save, ArrowLeft, CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 import { Month } from "@/types/models";
 
-const FULL_MONTHS = [
+/* -------------------------------------------------------------------------- */
+/* CONSTANTS */
+/* -------------------------------------------------------------------------- */
+
+const FULL_MONTHS: Month[] = [
   "January",
   "February",
   "March",
@@ -41,130 +46,109 @@ const FULL_MONTHS = [
   "December",
 ];
 
-const months: Month[] = FULL_MONTHS;
-const monthOptions = months.map((m) => ({ value: m, label: m }));
+const monthOptions = FULL_MONTHS.map((m) => ({
+  label: m,
+  value: m,
+}));
+
+/* -------------------------------------------------------------------------- */
+/* TYPES */
+/* -------------------------------------------------------------------------- */
 
 interface AmavasyaFormData {
   month: Month;
   year: number;
-  startDate?: Date | null;
-  endDate?: Date | null;
-  startTime: string; // "HH:mm"
-  endTime: string; // "HH:mm"
+  startDate?: Date;
+  endDate?: Date;
+  startTime: string; // "08:30 AM"
+  endTime: string; // "10:15 PM"
   isActive: boolean;
 }
 
-// --- helpers ---------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* HELPERS */
+/* -------------------------------------------------------------------------- */
 
-// robust payload extractor (handles resp.data.data, resp.data.data.items, resp.data)
-function extractPayload(resp: any) {
-  const d = resp?.data?.data ?? resp?.data;
-  if (!d) return null;
-  if (Array.isArray(d.items)) {
-    return d.items.length ? d.items[0] : null;
-  }
-  return d;
+function expandMonth(input: any): Month {
+  const found = FULL_MONTHS.find(
+    (m) => m.toLowerCase() === String(input).toLowerCase()
+  );
+  return found ?? "January";
 }
 
-// normalize different time shapes to "HH:mm" string or ""
-// accepts "HH:mm", "HH:mm:ss", ISO datetime string, Date instance
-function normalizeTimeString(input: any): string {
-  if (input === null || typeof input === "undefined" || input === "") return "";
-  if (input instanceof Date && !isNaN(input.getTime())) {
-    const hh = String(input.getHours()).padStart(2, "0");
-    const mm = String(input.getMinutes()).padStart(2, "0");
-    return `${hh}:${mm}`;
-  }
-  if (typeof input === "string") {
-    // HH:mm or H:mm
-    const hhmm = input.match(/^(\d{1,2}):(\d{2})$/);
-    if (hhmm) return `${hhmm[1].padStart(2, "0")}:${hhmm[2]}`;
+function getMonthDate(month: Month, year: number) {
+  return new Date(year, FULL_MONTHS.indexOf(month), 1);
+}
 
-    // HH:mm:ss
-    const hhmmss = input.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
-    if (hhmmss) return `${hhmmss[1].padStart(2, "0")}:${hhmmss[2]}`;
+/* -------------------------------------------------------------------------- */
+/* 12-HOUR TIME INPUT COMPONENT */
+/* -------------------------------------------------------------------------- */
 
-    // ISO datetime
-    const iso = /^\d{4}-\d{2}-\d{2}T/;
-    if (iso.test(input)) {
-      const d = new Date(input);
-      if (!isNaN(d.getTime())) {
-        const hh = String(d.getHours()).padStart(2, "0");
-        const mm = String(d.getMinutes()).padStart(2, "0");
-        return `${hh}:${mm}`;
+function Time12Input({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const [time, setTime] = useState("08:00");
+  const [meridiem, setMeridiem] = useState<"AM" | "PM">("AM");
+
+  useEffect(() => {
+    if (value) {
+      const [t, m] = value.split(" ");
+      if (t && m) {
+        setTime(t);
+        setMeridiem(m as "AM" | "PM");
       }
     }
+  }, [value]);
 
-    // fallback: try Date.parse
-    const parsed = Date.parse(input);
-    if (!isNaN(parsed)) {
-      const d = new Date(parsed);
-      return `${String(d.getHours()).padStart(2, "0")}:${String(
-        d.getMinutes()
-      ).padStart(2, "0")}`;
-    }
-  }
-  return "";
+  const update = (t = time, m = meridiem) => {
+    onChange(`${t} ${m}`);
+  };
+
+  return (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      <div className="flex gap-2">
+        <input
+          type="time"
+          value={time}
+          onChange={(e) => {
+            setTime(e.target.value);
+            update(e.target.value, meridiem);
+          }}
+          className="flex-1 rounded-md border px-2 py-2"
+        />
+        <select
+          value={meridiem}
+          onChange={(e) => {
+            setMeridiem(e.target.value as "AM" | "PM");
+            update(time, e.target.value as "AM" | "PM");
+          }}
+          className="rounded-md border px-3"
+        >
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
+      </div>
+    </div>
+  );
 }
 
-// map server validation shape to field errors
-function mapServerErrorsToFields(
-  serverErrors: any
-): Partial<Record<keyof AmavasyaFormData, string>> {
-  const out: Partial<Record<keyof AmavasyaFormData, string>> = {};
-  if (!serverErrors) return out;
-  const maybe = serverErrors.errors ?? serverErrors;
-  if (typeof maybe !== "object") return out;
-  for (const k of Object.keys(maybe)) {
-    const val = maybe[k];
-    const key = k as keyof AmavasyaFormData;
-    if (Array.isArray(val)) out[key] = val.join(" ");
-    else if (typeof val === "string") out[key] = val;
-    else if (val && typeof val.message === "string") out[key] = val.message;
-  }
-  return out;
-}
-
-// map short/various month forms to full month names
-function expandMonth(input: any): string {
-  if (input === null || typeof input === "undefined") return "";
-  if (typeof input === "string") {
-    const trimmed = input.trim();
-    // exact full month match (case-insensitive)
-    const fullMatch = FULL_MONTHS.find(
-      (m) => m.toLowerCase() === trimmed.toLowerCase()
-    );
-    if (fullMatch) return fullMatch;
-    // short form like "Dec", "Sep"
-    const short = trimmed.slice(0, 3).toLowerCase();
-    const idx = FULL_MONTHS.findIndex(
-      (m) => m.slice(0, 3).toLowerCase() === short
-    );
-    if (idx >= 0) return FULL_MONTHS[idx];
-    // numeric month like "12" or 12
-    const asNum = Number(trimmed);
-    if (!Number.isNaN(asNum) && asNum >= 1 && asNum <= 12)
-      return FULL_MONTHS[asNum - 1];
-  }
-  if (
-    typeof input === "number" &&
-    Number.isInteger(input) &&
-    input >= 1 &&
-    input <= 12
-  ) {
-    return FULL_MONTHS[input - 1];
-  }
-  // fallback: return stringified input
-  return String(input);
-}
-
-// --------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* MAIN COMPONENT */
+/* -------------------------------------------------------------------------- */
 
 export default function AmavasyaForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  const stateItem = (location.state as any)?.item ?? null;
+
+  const stateItem = (location.state as any)?.item;
   const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState<AmavasyaFormData>({
@@ -177,164 +161,93 @@ export default function AmavasyaForm() {
     isActive: true,
   });
 
-  const [errors, setErrors] = useState<
-    Partial<Record<keyof AmavasyaFormData, string>>
-  >({});
-  const [generalError, setGeneralError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const loadAmavasya = useCallback(async (amId: string) => {
-    if (!amId) return;
+  /* ---------------------------------------------------------------------- */
+  /* LOAD DATA (EDIT MODE) */
+  /* ---------------------------------------------------------------------- */
+
+  const loadAmavasya = useCallback(async () => {
+    if (!id) return;
     setLoading(true);
-    setGeneralError(null);
     try {
-      const resp = await api.get(`/amavasya/${amId}`);
-      const payload = extractPayload(resp) ?? resp?.data ?? null;
-      if (!payload) {
-        setGeneralError("Amavasya not found");
-        return;
-      }
+      const res = await api.get(`/amavasya/${id}`);
+      const d = res.data.data ?? res.data;
 
-      const normalized = {
-        month: expandMonth(
-          payload.month ?? payload.monthName ?? "January"
-        ) as Month,
-        year: Number(payload.year) || new Date().getFullYear(),
-        startDate: payload.startDate ? new Date(payload.startDate) : undefined,
-        endDate: payload.endDate ? new Date(payload.endDate) : undefined,
-        startTime:
-          normalizeTimeString(payload.startTime) ||
-          (payload.startDate ? normalizeTimeString(payload.startDate) : ""),
-        endTime:
-          normalizeTimeString(payload.endTime) ||
-          (payload.endDate ? normalizeTimeString(payload.endDate) : ""),
-        isActive:
-          typeof payload.isActive === "boolean"
-            ? payload.isActive
-            : Boolean(payload.active),
-      };
-
-      setFormData(normalized);
-    } catch (err: any) {
-      console.error("Failed to load amavasya", err);
-      setGeneralError(
-        err?.response?.data?.message ??
-          err?.message ??
-          "Failed to load amavasya"
-      );
+      setFormData({
+        month: expandMonth(d.month),
+        year: Number(d.year),
+        startDate: d.startDate ? new Date(d.startDate) : undefined,
+        endDate: d.endDate ? new Date(d.endDate) : undefined,
+        startTime: d.startTime ?? "",
+        endTime: d.endTime ?? "",
+        isActive: Boolean(d.isActive),
+      });
+    } catch {
+      toast.error("Failed to load amavasya");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [id]);
 
-  // If the navigator passed the item in state, use it (avoid refetch). Otherwise fetch if editing.
   useEffect(() => {
     if (stateItem) {
-      // use location.state item if available (normalize shape)
-      const p = stateItem;
-      const normalized = {
-        month: expandMonth(p.month ?? p.monthName ?? "January") as Month,
-        year: Number(p.year) || new Date().getFullYear(),
-        startDate: p.startDate ? new Date(p.startDate) : undefined,
-        endDate: p.endDate ? new Date(p.endDate) : undefined,
-        startTime:
-          normalizeTimeString(p.startTime) ||
-          (p.startDate ? normalizeTimeString(p.startDate) : ""),
-        endTime:
-          normalizeTimeString(p.endTime) ||
-          (p.endDate ? normalizeTimeString(p.endDate) : ""),
-        isActive:
-          typeof p.isActive === "boolean" ? p.isActive : Boolean(p.active),
-      };
-      setFormData(normalized);
-    } else if (isEdit && id) {
-      loadAmavasya(id);
+      setFormData({
+        month: expandMonth(stateItem.month),
+        year: Number(stateItem.year),
+        startDate: stateItem.startDate
+          ? new Date(stateItem.startDate)
+          : undefined,
+        endDate: stateItem.endDate ? new Date(stateItem.endDate) : undefined,
+        startTime: stateItem.startTime ?? "",
+        endTime: stateItem.endTime ?? "",
+        isActive: Boolean(stateItem.isActive),
+      });
+    } else if (isEdit) {
+      loadAmavasya();
     }
-  }, [stateItem, isEdit, id, loadAmavasya]);
+  }, [stateItem, isEdit, loadAmavasya]);
 
-  const validate = (): boolean => {
-    const newErrors: Partial<Record<keyof AmavasyaFormData, string>> = {};
-    if (!formData.startDate) newErrors.startDate = "Start date is required";
-    if (
-      formData.endDate &&
-      formData.startDate &&
-      formData.endDate < formData.startDate
-    ) {
-      newErrors.endDate = "End date must be after start date";
-    }
-    // Optional: validate time format HH:mm
-    const timeRegex = /^\d{2}:\d{2}$/;
-    if (formData.startTime && !timeRegex.test(formData.startTime)) {
-      newErrors.startTime = "Start time must be in HH:mm format";
-    }
-    if (formData.endTime && !timeRegex.test(formData.endTime)) {
-      newErrors.endTime = "End time must be in HH:mm format";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  /* ---------------------------------------------------------------------- */
+  /* SUBMIT */
+  /* ---------------------------------------------------------------------- */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setGeneralError(null);
-    setErrors({});
+    setSubmitting(true);
 
-    if (!validate()) return;
-
-    setIsSubmitting(true);
     try {
-      const payload: any = {
-        // always send expanded full month name
-        month: expandMonth(formData.month),
-        year: formData.year,
-        startDate: formData.startDate ? formData.startDate.toISOString() : null,
-        endDate: formData.endDate ? formData.endDate.toISOString() : null,
-        // keep times as strings "HH:mm" (or null)
-        startTime: formData.startTime ? formData.startTime : null,
-        endTime: formData.endTime ? formData.endTime : null,
-        isActive: formData.isActive,
+      const payload = {
+        ...formData,
+        startDate: formData.startDate?.toISOString(),
+        endDate: formData.endDate?.toISOString(),
       };
 
-      if (isEdit && id) {
+      if (isEdit) {
         await api.put(`/amavasya/${id}`, payload);
-        toast.success("Amavasya updated successfully");
+        toast.success("Amavasya updated");
       } else {
         await api.post("/amavasya", payload);
-        toast.success("Amavasya created successfully");
+        toast.success("Amavasya created");
       }
 
       navigate("/amavasya");
-    } catch (err: any) {
-      console.error("Save error", err);
-      const serverData = err?.response?.data ?? null;
-
-      // Map field errors if provided by server
-      const mapped = mapServerErrorsToFields(
-        serverData ?? err?.response?.data?.errors
-      );
-      if (Object.keys(mapped).length) setErrors((p) => ({ ...p, ...mapped }));
-
-      const msg =
-        serverData?.message ??
-        serverData?.error ??
-        err?.message ??
-        "Failed to save amavasya";
-      setGeneralError(msg);
-      toast.error(msg);
+    } catch {
+      toast.error("Failed to save amavasya");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
+
+  /* ---------------------------------------------------------------------- */
+  /* UI */
+  /* ---------------------------------------------------------------------- */
 
   return (
     <div className="page-enter">
       <PageHeader
         title={isEdit ? "Edit Amavasya" : "Create Amavasya"}
-        description={
-          isEdit ? "Update amavasya details" : "Add a new amavasya record"
-        }
         breadcrumbs={[
           { label: "Dashboard", href: "/" },
           { label: "Amavasya", href: "/amavasya" },
@@ -348,30 +261,25 @@ export default function AmavasyaForm() {
         }
       />
 
-      <GlassCard variant="elevated" className="max-w-2xl">
+      <GlassCard className="max-w-2xl">
         <GlassCardHeader>
           <GlassCardTitle>Amavasya Details</GlassCardTitle>
         </GlassCardHeader>
+
         <GlassCardContent>
           {loading ? (
-            <div className="py-12 text-center text-muted-foreground">
-              Loading amavasya...
+            <div className="py-10 text-center text-muted-foreground">
+              Loading...
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              {generalError && (
-                <div className="rounded-md bg-destructive/10 p-2 text-destructive">
-                  {generalError}
-                </div>
-              )}
-
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid sm:grid-cols-2 gap-4">
                 <SearchableSelect
                   label="Month"
                   options={monthOptions}
                   value={formData.month}
-                  onChange={(value) =>
-                    setFormData({ ...formData, month: value as Month })
+                  onChange={(v) =>
+                    setFormData({ ...formData, month: v as Month })
                   }
                 />
 
@@ -382,141 +290,106 @@ export default function AmavasyaForm() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      year:
-                        parseInt(e.target.value || "", 10) ||
-                        new Date().getFullYear(),
+                      year: Number(e.target.value),
                     })
                   }
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
+              {/* START DATE */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
                   <Label>Start Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !formData.startDate && "text-muted-foreground"
-                        )}
+                        className="w-full justify-start"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {formData.startDate
                           ? format(formData.startDate, "PPP")
-                          : "Pick a date"}
+                          : "Pick date"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="p-0">
                       <Calendar
                         mode="single"
-                        selected={formData.startDate ?? undefined}
-                        onSelect={(date) =>
-                          setFormData({
-                            ...formData,
-                            startDate: date ?? undefined,
-                          })
+                        selected={formData.startDate}
+                        month={getMonthDate(formData.month, formData.year)}
+                        onSelect={(d) =>
+                          setFormData({ ...formData, startDate: d })
                         }
-                        initialFocus
-                        className="pointer-events-auto"
                       />
                     </PopoverContent>
                   </Popover>
-                  {errors.startDate && (
-                    <p className="text-xs text-destructive">
-                      {errors.startDate}
-                    </p>
-                  )}
                 </div>
 
-                <div className="space-y-2">
+                {/* END DATE */}
+                <div>
                   <Label>End Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !formData.endDate && "text-muted-foreground"
-                        )}
+                        className="w-full justify-start"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {formData.endDate
                           ? format(formData.endDate, "PPP")
-                          : "Pick a date"}
+                          : "Pick date"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="p-0">
                       <Calendar
                         mode="single"
-                        selected={formData.endDate ?? undefined}
-                        onSelect={(date) =>
-                          setFormData({
-                            ...formData,
-                            endDate: date ?? undefined,
-                          })
+                        selected={formData.endDate}
+                        month={getMonthDate(formData.month, formData.year)}
+                        onSelect={(d) =>
+                          setFormData({ ...formData, endDate: d })
                         }
-                        initialFocus
-                        className="pointer-events-auto"
                       />
                     </PopoverContent>
                   </Popover>
-                  {errors.endDate && (
-                    <p className="text-xs text-destructive">{errors.endDate}</p>
-                  )}
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FloatingInput
+              {/* TIME */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Time12Input
                   label="Start Time"
-                  type="time"
                   value={formData.startTime}
-                  onChange={(e) =>
-                    setFormData({ ...formData, startTime: e.target.value })
-                  }
+                  onChange={(v) => setFormData({ ...formData, startTime: v })}
                 />
-                <FloatingInput
+                <Time12Input
                   label="End Time"
-                  type="time"
                   value={formData.endTime}
-                  onChange={(e) =>
-                    setFormData({ ...formData, endTime: e.target.value })
-                  }
+                  onChange={(v) => setFormData({ ...formData, endTime: v })}
                 />
               </div>
 
-              <div className="flex items-center justify-between rounded-xl bg-muted/30 p-4">
-                <div>
-                  <Label htmlFor="isActive" className="font-medium">
-                    Active Status
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Amavasya is currently active
-                  </p>
-                </div>
+              {/* ACTIVE */}
+              <div className="flex justify-between items-center rounded-xl bg-muted/30 p-4">
+                <Label>Active Status</Label>
                 <Switch
-                  id="isActive"
                   checked={formData.isActive}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, isActive: Boolean(checked) })
+                  onCheckedChange={(v) =>
+                    setFormData({ ...formData, isActive: Boolean(v) })
                   }
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => navigate("/amavasya")}
-                  disabled={isSubmitting}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" loading={isSubmitting}>
+                <Button type="submit" loading={submitting}>
                   <Save className="h-4 w-4" />
-                  {isEdit ? "Update Amavasya" : "Create Amavasya"}
+                  {isEdit ? "Update" : "Create"}
                 </Button>
               </div>
             </form>
