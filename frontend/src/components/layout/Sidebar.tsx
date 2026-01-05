@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Users,
   Shield,
@@ -10,10 +10,13 @@ import {
   LayoutDashboard,
   Map,
   UserCheck,
+  LogOut,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 /* =========================
    NAVIGATION ITEMS
@@ -63,6 +66,18 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const location = useLocation();
+  const { logout, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to logout");
+    }
+  };
 
   /* =========================
      ACTIVE ROUTE LOGIC
@@ -187,6 +202,33 @@ export function Sidebar({ className }: SidebarProps) {
             })}
           </ul>
         </nav>
+
+        {/* =========================
+            USER INFO & LOGOUT
+        ========================== */}
+        <div className="border-t border-sidebar-border p-3 space-y-2">
+          {!collapsed && user && (
+            <div className="px-3 py-2 text-sm">
+              <p className="font-medium text-sidebar-foreground truncate">
+                {user.userName}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {user.email}
+              </p>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            className={cn(
+              "w-full justify-start text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive",
+              collapsed && "justify-center"
+            )}
+          >
+            <LogOut className={cn("h-5 w-5 shrink-0", collapsed && "mx-auto")} />
+            {!collapsed && <span className="ml-3">Logout</span>}
+          </Button>
+        </div>
       </aside>
 
       {/* MOBILE HEADER SPACER */}

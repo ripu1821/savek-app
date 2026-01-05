@@ -53,13 +53,20 @@ function DataTable<T extends { id?: string | number }>({
     let result = [...data];
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter((item) =>
-        columns.some((col) => {
-          const value = (item as Record<string, unknown>)[col.key as string];
-          return String(value).toLowerCase().includes(query);
-        })
-      );
+      const query = searchQuery.toLowerCase().trim();
+      if (query) {
+        result = result.filter((item) =>
+          columns.some((col) => {
+            const value = (item as Record<string, unknown>)[col.key as string];
+            if (value == null) return false;
+            // Better search: handle nested objects and arrays
+            const stringValue = typeof value === 'object' 
+              ? JSON.stringify(value).toLowerCase()
+              : String(value).toLowerCase();
+            return stringValue.includes(query);
+          })
+        );
+      }
     }
 
     if (sortConfig) {

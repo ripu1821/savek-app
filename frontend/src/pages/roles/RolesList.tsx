@@ -18,6 +18,8 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { Role } from "@/types/models";
+import { SearchInput } from "@/components/ui/search-input";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 
 function extractItems(resp: any): any[] {
   const d = resp?.data?.data ?? resp?.data;
@@ -126,27 +128,26 @@ export default function RolesList() {
       />
 
       <div className="mb-4 flex items-center gap-2">
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          placeholder="Search roles..."
-          className="input"
-        />
+        <div className="flex-1 max-w-sm">
+          <SearchInput
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            placeholder="Search roles..."
+          />
+        </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows</span>
-          <select
+          <PageSizeSelect
             value={limit}
-            onChange={(e) => setLimit(Number(e.target.value))}
-            className="input w-20"
-          >
-            <option value={6}>6</option>
-            <option value={12}>12</option>
-            <option value={24}>24</option>
-          </select>
+            onChange={(value) => {
+              setLimit(value);
+              setPage(1);
+            }}
+            options={[6, 12, 24]}
+          />
         </div>
       </div>
 

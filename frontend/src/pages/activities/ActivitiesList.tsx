@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { DataTable, Column } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +40,6 @@ export default function ActivitiesList() {
   // ui state
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -57,7 +57,6 @@ export default function ActivitiesList() {
         params: {
           page,
           limit,
-          q: search || undefined,
           sortBy,
           sortOrder,
         },
@@ -88,7 +87,7 @@ export default function ActivitiesList() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, sortBy, sortOrder]);
+  }, [page, limit, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchActivities();
@@ -220,31 +219,15 @@ export default function ActivitiesList() {
         }
       />
 
-      <div className="mb-4 flex items-center gap-2">
-        {/* simple search input — replace with your Input component if available */}
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1); // reset page on new search
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <PageSizeSelect
+          value={limit}
+          onChange={(value) => {
+            setLimit(value);
+            setPage(1);
           }}
-          placeholder="Search activities..."
-          className="input mr-2"
+          options={[5, 10, 20, 50]}
         />
-
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows</span>
-          <select
-            value={limit}
-            onChange={(e) => setLimit(Number(e.target.value))}
-            className="input w-20"
-          >
-            <option value={5}>5</option>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-        </div>
       </div>
 
       <DataTable

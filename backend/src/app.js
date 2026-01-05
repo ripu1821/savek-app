@@ -6,7 +6,7 @@ import "dotenv/config";
 
 import express from "express";
 import cors from "cors";
-import { createServer } from "http";
+import { createServer } from "node:http";
 import routes from "./routes/index.js";
 import setupSwagger from "./swagger/swaggerConfig.js";
 import { morganMiddleware } from "./middlewares/morganMiddleware.js";

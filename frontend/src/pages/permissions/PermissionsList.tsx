@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { Permission } from "@/types/models";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 
 function extractItems(resp: any): any[] {
   const d = resp?.data?.data ?? resp?.data;
@@ -37,11 +38,10 @@ export default function PermissionsList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // pagination + search
+  // pagination
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
-  const [search, setSearch] = useState("");
 
   // delete dialog
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function PermissionsList() {
 
     try {
       const resp = await api.get("/permission", {
-        params: { page, limit, name: search || undefined },
+        params: { page, limit },
       });
 
       const payload = resp?.data?.data ?? resp?.data;
@@ -76,7 +76,7 @@ export default function PermissionsList() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search]);
+  }, [page, limit]);
 
   useEffect(() => {
     fetchPermissions();
@@ -227,31 +227,16 @@ export default function PermissionsList() {
         }
       />
 
-      {/* Search + Limit */}
-      <div className="mb-4 flex items-center gap-2">
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
+      {/* Page Size */}
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <PageSizeSelect
+          value={limit}
+          onChange={(value) => {
+            setLimit(value);
             setPage(1);
           }}
-          placeholder="Search permissions..."
-          className="input"
+          options={[5, 10, 20, 50]}
         />
-
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows</span>
-          <select
-            value={limit}
-            onChange={(e) => setLimit(Number(e.target.value))}
-            className="input w-20"
-          >
-            <option value={5}>5</option>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-        </div>
       </div>
 
       {/* DataTable */}

@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { User } from "@/types/models";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 
 function extractItems(resp: any): any[] {
   const d = resp?.data?.data ?? resp?.data;
@@ -47,11 +48,10 @@ export default function UsersList() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // pagination / search
+  // pagination
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(10);
   const [total, setTotal] = useState<number>(0);
-  const [search, setSearch] = useState<string>("");
 
   // delete dialog
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export default function UsersList() {
     setError(null);
     try {
       const resp = await api.get("/user", {
-        params: { page, limit, q: search || undefined },
+        params: { page, limit },
       });
 
       const payload = resp?.data?.data ?? resp?.data;
@@ -82,7 +82,7 @@ export default function UsersList() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search]);
+  }, [page, limit]);
 
   useEffect(() => {
     fetchUsers();
@@ -247,26 +247,15 @@ export default function UsersList() {
         }
       />
 
-      <div className="mb-4 flex items-center gap-2">
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <PageSizeSelect
+          value={limit}
+          onChange={(value) => {
+            setLimit(value);
             setPage(1);
           }}
-          placeholder="Search users..."
-          className="input"
+          options={[5, 10, 20, 50]}
         />
-
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows</span>
-          <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="input w-20">
-            <option value={5}>5</option>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-        </div>
       </div>
 
       <DataTable

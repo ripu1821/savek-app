@@ -20,6 +20,7 @@ import {
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { AmavasyaUserLocation as AULType } from "@/types/models";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 
 /* ---------------------------------
    HELPERS
@@ -54,7 +55,6 @@ export default function AmavasyaAllListUserLocationsList() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10); // ✅ FIRST LOAD = 10
   const [total, setTotal] = useState(0);
-  const [search, setSearch] = useState("");
 
   // delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -70,7 +70,6 @@ export default function AmavasyaAllListUserLocationsList() {
         params: {
           page,
           limit,
-          q: search || undefined,
         },
       });
 
@@ -95,7 +94,7 @@ export default function AmavasyaAllListUserLocationsList() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search]);
+  }, [page, limit]);
 
   useEffect(() => {
     fetchList();
@@ -236,34 +235,16 @@ export default function AmavasyaAllListUserLocationsList() {
         }
       />
 
-      {/* SEARCH + LIMIT */}
-      <div className="mb-4 flex items-center gap-2">
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
+      {/* PAGE SIZE */}
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <PageSizeSelect
+          value={limit}
+          onChange={(value) => {
+            setLimit(value);
             setPage(1);
           }}
-          placeholder="Search..."
-          className="input"
+          options={[5, 10, 20, 50]}
         />
-
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows</span>
-          <select
-            value={limit}
-            onChange={(e) => {
-              setLimit(Number(e.target.value));
-              setPage(1);
-            }}
-            className="input w-20"
-          >
-            <option value={5}>5</option>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-        </div>
       </div>
 
       <DataTable
